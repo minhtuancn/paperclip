@@ -36,3 +36,5 @@ services:
       PAPERCLIP_DB_BACKUP_ENABLED: "true"
       # Extra LLM providers (OPENAI/ANTHROPIC already defined in quickstart).
       GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      # Custom Anthropic-compatible endpoint (self-hosted router on the LAN).
+      ANTHROPIC_BASE_URL: "${ANTHROPIC_BASE_URL:-}"
