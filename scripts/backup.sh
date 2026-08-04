@@ -6,9 +6,12 @@ set -Eeuo pipefail
 # Strategy:
 #   1. Online consistent database backup via the in-container CLI
 #      (`pnpm paperclipai db:backup`, pg_dump/JS engine against embedded
-#      PostgreSQL) — no downtime.
-#   2. Online archive of the non-DB data directory (workspaces, uploads,
-#      config, logs) excluding the embedded Postgres cluster.
+#      PostgreSQL) — no downtime. Written into the app's own backup
+#      directory (/paperclip/instances/default/data/backups) so the
+#      built-in health check and scheduled-backup retention see it.
+#   2. A copy of the fresh .sql.gz plus an online archive of the non-DB
+#      data directory (workspaces, uploads, config, logs) excluding the
+#      embedded Postgres cluster and the app's backup directory.
 #   3. Metadata file, retention (default: keep the 14 newest backups),
 #   4. Verification that the files were actually created.
 #
@@ -72,10 +75,13 @@ IMAGE_ID="$(docker inspect -f '{{.Image}}' paperclip 2>/dev/null || true)"
   echo "compose_version=$("${COMPOSE[@]}" version 2>/dev/null | head -1 || echo unknown)"
 } > "$BACKUP_DIR/METADATA.txt"
 
-# 1) Consistent online DB backup via the in-container CLI.
+# 1) Consistent online DB backup via the in-container CLI. Written into the
+#    app's configured backup dir so the built-in health check is satisfied
+#    and the app's own retention prunes old copies.
 echo "==> Creating consistent database backup (db:backup)"
 DB_OUTPUT="$("${COMPOSE[@]}" exec --user node paperclip \
-  pnpm paperclipai db:backup --dir /paperclip/backups --json 2>&1)" \
+  pnpm paperclipai db:backup \
+  --dir /paperclip/instances/default/data/backups --json 2>&1)" \
   || { fail "db:backup failed:"; printf '%s\n' "$DB_OUTPUT" >&2; exit 1; }
 
 DB_BACKUP_FILE="$(printf '%s\n' "$DB_OUTPUT" \
@@ -93,8 +99,10 @@ if [ ! -f "$HOST_DB_FILE" ]; then
   fail "database backup file not found on host: $HOST_DB_FILE"
   exit 1
 fi
-mv "$HOST_DB_FILE" "$BACKUP_DIR/"
-echo "==> Database backup moved to: $BACKUP_DIR/$(basename "$DB_BACKUP_FILE")"
+# Copy (not move): leave the app's copy in its backup dir for the health
+# check; archive a copy in the timestamped backup directory.
+cp "$HOST_DB_FILE" "$BACKUP_DIR/"
+echo "==> Database backup copied to: $BACKUP_DIR/$(basename "$DB_BACKUP_FILE")"
 
 # 2) Archive the non-DB data directory (workspaces, uploads, config, logs).
 TAR_FILE="$BACKUP_DIR/data-files.tar.gz"
