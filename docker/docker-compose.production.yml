@@ -1,0 +1,38 @@
+# Production override for the LAN deployment on 10.20.10.128.
+#
+# This file is used TOGETHER with the upstream docker-compose.quickstart.yml:
+#
+#   docker compose \
+#     --env-file .env \
+#     -f docker/docker-compose.quickstart.yml \
+#     -f docker/docker-compose.production.yml \
+#     up -d
+#
+# The upstream quickstart file is kept untouched. This override carries all
+# deployment customizations (UID/GID, restart policy, extra environment).
+#
+# The persistent data volume is defined in the quickstart file as
+# "${PAPERCLIP_DATA_DIR:-../data/docker-paperclip}:/paperclip". We set
+# PAPERCLIP_DATA_DIR=/home/dev/data/paperclip in .env, so that entry already
+# resolves to an absolute host path. We deliberately do NOT redeclare the
+# volume here: Compose concatenates volume lists across files and a second
+# mount of /paperclip would be a duplicate mount point error.
+
+services:
+  paperclip:
+    container_name: paperclip
+    build:
+      args:
+        USER_UID: "${USER_UID}"
+        USER_GID: "${USER_GID}"
+    restart: unless-stopped
+    environment:
+      # Comma-separated hostnames permitted in authenticated/private mode.
+      # The hostname of PAPERCLIP_PUBLIC_URL is allowed automatically too.
+      PAPERCLIP_ALLOWED_HOSTNAMES: "${PAPERCLIP_ALLOWED_HOSTNAMES:-}"
+      # Non-interactive container startup: apply pending migrations on boot.
+      PAPERCLIP_MIGRATION_AUTO_APPLY: "true"
+      # Keep automatic in-instance database backups enabled.
+      PAPERCLIP_DB_BACKUP_ENABLED: "true"
+      # Extra LLM providers (OPENAI/ANTHROPIC already defined in quickstart).
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"

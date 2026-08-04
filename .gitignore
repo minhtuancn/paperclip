@@ -69,3 +69,9 @@ tests/storybook-visual/playwright-report/
 .superpowers/
 .claude/worktrees/
 .herenow
+
+# ── Deployment-specific (production branch) ──
+.env.*
+!.env.example
+backups/
+*.log
