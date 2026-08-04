@@ -6,16 +6,14 @@ set -Eeuo pipefail
 
 # Re-exec inside the docker group if the current shell cannot reach dockerd.
 if ! docker info >/dev/null 2>&1; then
-  exec sg docker "$0" "$@"
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-COMPOSE=(docker compose --env-file .env
-  -f docker/docker-compose.quickstart.yml
-  -f docker/docker-compose.production.yml)
+COMPOSE=("$SCRIPT_DIR/dc")
 
 DATA_DIR="${PAPERCLIP_DATA_DIR:-/home/dev/data/paperclip}"
 PUBLIC_URL="${PAPERCLIP_PUBLIC_URL:-http://127.0.0.1:3100}"

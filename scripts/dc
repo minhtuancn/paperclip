@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -e
+
+# dc — run `docker compose` with the project's two compose files + .env.
+# Usage (run from the repository root):
+#   ./scripts/dc ps
+#   ./scripts/dc up -d
+#   ./scripts/dc logs --tail=200 paperclip
+#
+# Re-executes inside the docker group if the current shell lacks access,
+# so it works both from fresh logins and from restricted sessions.
+
+if ! docker info >/dev/null 2>&1; then
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
+fi
+
+exec docker compose --env-file .env \
+  -f docker/docker-compose.quickstart.yml \
+  -f docker/docker-compose.production.yml \
+  "$@"

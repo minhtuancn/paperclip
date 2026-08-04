@@ -20,7 +20,7 @@ set -Eeuo pipefail
 
 # Re-exec inside the docker group if the current shell cannot reach dockerd.
 if ! docker info >/dev/null 2>&1; then
-  exec sg docker "$0" "$@"
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,9 +31,7 @@ DATA_DIR="${PAPERCLIP_DATA_DIR:-/home/dev/data/paperclip}"
 BACKUP_ROOT="/home/dev/backups/paperclip"
 RETENTION_KEEP="${BACKUP_RETENTION_KEEP:-14}"
 
-COMPOSE=(docker compose --env-file .env
-  -f docker/docker-compose.quickstart.yml
-  -f docker/docker-compose.production.yml)
+COMPOSE=("$SCRIPT_DIR/dc")
 
 fail() { echo "ERROR: $*" >&2; }
 
@@ -63,7 +61,7 @@ if ! container_running; then
 fi
 
 # Metadata
-IMAGE_ID="$("${COMPOSE[@]}" images -q paperclip 2>/dev/null | head -1 || true)"
+IMAGE_ID="$(docker inspect -f '{{.Image}}' paperclip 2>/dev/null || true)"
 {
   echo "paperclip-backup"
   echo "date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"

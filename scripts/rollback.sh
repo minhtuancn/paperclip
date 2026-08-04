@@ -19,16 +19,14 @@ set -Eeuo pipefail
 
 # Re-exec inside the docker group if the current shell cannot reach dockerd.
 if ! docker info >/dev/null 2>&1; then
-  exec sg docker "$0" "$@"
+  exec sg docker -c "$(printf '%q ' "$0" "$@")"
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$PROJECT_DIR"
 
-COMPOSE=(docker compose --env-file .env
-  -f docker/docker-compose.quickstart.yml
-  -f docker/docker-compose.production.yml)
+COMPOSE=("$SCRIPT_DIR/dc")
 
 HTTP_URL="${PAPERCLIP_PUBLIC_URL:-http://127.0.0.1:3100}"
 
@@ -61,7 +59,7 @@ TARGET="$(git rev-parse "$TARGET^{commit}")"
 # Record the currently running state so we can come back on failure.
 CURRENT_COMMIT="$(git rev-parse HEAD)"
 CURRENT_BRANCH="$(git branch --show-current)"
-CURRENT_IMAGE="$("${COMPOSE[@]}" images -q paperclip 2>/dev/null | head -1 || true)"
+CURRENT_IMAGE="$(docker inspect -f '{{.Image}}' paperclip 2>/dev/null || true)"
 echo "==> Current: branch=$CURRENT_BRANCH commit=$CURRENT_COMMIT image=${CURRENT_IMAGE:-none}"
 echo "==> Target:  commit=$TARGET"
 
